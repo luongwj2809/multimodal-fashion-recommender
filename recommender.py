@@ -205,7 +205,7 @@ class FashionHybridRecommender:
 
         return self.encode_text_query(text)
 
-    def hybrid_recommend(self, query_image=None, query_text=None, user_id=None, top_k=10, alpha_h=0.6):
+    def hybrid_recommend(self, query_image=None, query_text=None, user_id=None, top_k=10, alpha_h=0.6, alpha=None):
         if top_k <= 0:
             raise ValueError("top_k must be greater than 0.")
 
@@ -213,7 +213,9 @@ class FashionHybridRecommender:
         if is_cold_start:
             alpha_h = 1.0
 
-        query_vec = self.make_query_vector(image=query_image, text=query_text)
+        # alpha: trong so image vs text khi ket hop ca hai (None -> dung alpha_index mac dinh
+        # duoc luu trong index_config.json luc build FAISS index).
+        query_vec = self.make_query_vector(image=query_image, text=query_text, alpha=alpha)
         seen_item_ids = set() if is_cold_start else self._seen_item_ids(user_id)
 
         search_k = min(max(top_k * 3, top_k), self.faiss_index.ntotal)
