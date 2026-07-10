@@ -18,7 +18,6 @@ INTERACTIONS_PATH = FAISS_ARTIFACT_DIR / "interactions.csv"
 N_COLS = 5  # so anh moi hang trong luoi ket qua
 SUPPORTED_IMAGE_TYPES = ["jpg", "jpeg", "png", "webp"]
 
-
 @st.cache_resource(show_spinner="Dang tai model (CLIP + FAISS + CF)...")
 def load_recommender() -> FashionHybridRecommender:
     return FashionHybridRecommender(
@@ -60,7 +59,6 @@ def render_sidebar(rec: FashionHybridRecommender):
 
     uploaded_image = None
     query_text = ""
-    alpha_img_txt = None  # None -> dung alpha mac dinh luu trong index_config.json
 
     if mode == "Hinh anh":
         uploaded_image = st.sidebar.file_uploader("Tai anh san pham", type=SUPPORTED_IMAGE_TYPES)
@@ -75,11 +73,7 @@ def render_sidebar(rec: FashionHybridRecommender):
             "Mo ta bo sung (tieng Anh)",
             placeholder="vd: black floral print dress",
         )
-        alpha_img_txt = st.sidebar.slider(
-            "Trong so Anh vs Van ban (alpha)",
-            min_value=0.0, max_value=1.0, value=0.6, step=0.05,
-            help="1.0 = chi dung anh, 0.0 = chi dung van ban.",
-        )
+        st.sidebar.caption("Anh + van ban duoc tron theo alpha mac dinh trong index_config.json.")
 
     search_clicked = st.sidebar.button("Tim kiem", type="primary", use_container_width=True)
 
@@ -88,7 +82,6 @@ def render_sidebar(rec: FashionHybridRecommender):
         "user_id": user_id,
         "top_k": top_k,
         "alpha_h": alpha_h,
-        "alpha_img_txt": alpha_img_txt,
         "uploaded_image": uploaded_image,
         "query_text": query_text,
         "search_clicked": search_clicked,
@@ -106,10 +99,25 @@ def validate_query(mode, image_pil, query_text):
 
 
 def reason_tag(row):
-    """Sinh nhan giai thich ngan gon cho tung ket qua (explainability co ban cho Tuan 8)."""
+    #Sinh nhan giai thich ngan gon cho tung ket qua
     if row.has_cf:
         return "Nguoi dung tuong tu thich (CF)"
     return "Tuong dong noi dung (CLIP)"
+
+
+def resolve_image_path(raw_path):
+    if not raw_path:
+        return None
+
+    path = Path(str(raw_path))
+    if path.exists():
+        return path
+
+    local_path = IMAGE_ROOT / path.name
+    if local_path.exists():
+        return local_path
+
+    return None
 
 
 def display_grid(rec: FashionHybridRecommender, results, n_cols=N_COLS):
@@ -119,13 +127,10 @@ def display_grid(rec: FashionHybridRecommender, results, n_cols=N_COLS):
         for col, row in zip(cols, rows[start:start + n_cols]):
             with col:
                 match = rec.df_meta.loc[rec.df_meta["item_id"] == row.item_id, "image_path"]
-                img_path = match.iloc[0] if not match.empty else None
+                img_path = resolve_image_path(match.iloc[0] if not match.empty else None)
 
-                img_path = Path(img_path) if img_path else None
-                if img_path and img_path.exists():
-                    st.image(str(img_path), use_container_width=True)
-                elif img_path and (IMAGE_ROOT / img_path.name).exists():
-                    st.image(str(IMAGE_ROOT / img_path.name), use_container_width=True)
+                if img_path:
+                    st.image(img_path, use_container_width=True)
                 else:
                     st.caption("Khong co anh")
 
@@ -159,7 +164,7 @@ def main():
 
     query_image_pil = None
     if params["uploaded_image"] is not None:
-        query_image_pil = Image.open(params["uploaded_image"]).convert("RGB")
+        query_image_pil = Image.open(params["uploaded_image"])
 
     error_msg = validate_query(params["mode"], query_image_pil, params["query_text"])
     if error_msg:
@@ -177,7 +182,6 @@ def main():
             user_id=params["user_id"],
             top_k=params["top_k"],
             alpha_h=params["alpha_h"],
-            alpha=params["alpha_img_txt"],
         )
     except Exception as exc:  # noqa: BLE001
         st.error(f"Loi khi tim kiem: {exc}")
