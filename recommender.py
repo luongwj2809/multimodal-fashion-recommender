@@ -8,13 +8,6 @@ from PIL import Image
 
 
 class FashionHybridRecommender:
-    """
-    Reusable recommender for Week 7 app/demo.
-
-    This class does not train models. It only loads saved artifacts:
-    FAISS index, metadata, fine-tuned CLIP checkpoint, and cf_model.pkl.
-    """
-
     def __init__(
         self,
         artifact_dir,
